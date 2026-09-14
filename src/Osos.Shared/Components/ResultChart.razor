@@ -1,0 +1,173 @@
+@using System.Globalization
+@using System.Text
+@using System.Text.Json
+
+@if (_rows is null || _rows.Count == 0)
+{
+    <p class="osos-muted">Grafik için veri yok.</p>
+}
+else if (_numericCols.Count == 0)
+{
+    <p class="osos-muted">Sayısal sütun bulunamadı (grafik çizilemedi).</p>
+}
+else
+{
+    <div class="osos-chart-controls">
+        <label>Değer sütunu
+            <select @bind="_valueCol">
+                @foreach (var c in _numericCols){ <option value="@c">@c</option> }
+            </select>
+        </label>
+        @if (_labelCols.Count > 0)
+        {
+            <label>Etiket sütunu
+                <select @bind="_labelCol">
+                    <option value="">(sıra no)</option>
+                    @foreach (var c in _labelCols){ <option value="@c">@c</option> }
+                </select>
+            </label>
+        }
+    </div>
+    <div class="osos-table-wrap">
+        @((MarkupString)BuildSvg())
+    </div>
+}
+
+@code {
+    [Parameter] public string? Json { get; set; }
+
+    private List<Dictionary<string, JsonElement>>? _rows;
+    private List<string> _numericCols = new();
+    private List<string> _labelCols = new();
+    private string _valueCol = "";
+    private string _labelCol = "";
+
+    protected override void OnParametersSet()
+    {
+        _rows = null; _numericCols = new(); _labelCols = new();
+        if (string.IsNullOrWhiteSpace(Json)) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(Json);
+            var arr = FindFirstObjectArray(doc.RootElement);
+            if (arr is null) return;
+
+            var rows = new List<Dictionary<string, JsonElement>>();
+            foreach (var item in arr.Value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                var d = new Dictionary<string, JsonElement>();
+                foreach (var p in item.EnumerateObject()) d[p.Name] = p.Value.Clone();
+                rows.Add(d);
+            }
+            _rows = rows;
+            if (rows.Count == 0) return;
+
+            foreach (var key in rows[0].Keys)
+            {
+                bool numeric = rows.Take(10).Any(r => r.TryGetValue(key, out var v) && IsNumeric(v))
+                               && rows.All(r => !r.TryGetValue(key, out var v) || IsNumeric(v) || IsEmpty(v));
+                if (numeric) _numericCols.Add(key); else _labelCols.Add(key);
+            }
+            if (_numericCols.Count > 0 && !_numericCols.Contains(_valueCol)) _valueCol = _numericCols[0];
+            if (string.IsNullOrEmpty(_labelCol))
+                _labelCol = _labelCols.FirstOrDefault(c =>
+                    c.Contains("Date", StringComparison.OrdinalIgnoreCase)
+                    || c.Contains("Tarih", StringComparison.OrdinalIgnoreCase)
+                    || c.Contains("Time", StringComparison.OrdinalIgnoreCase)) ?? "";
+        }
+        catch { _rows = null; }
+    }
+
+    private List<(string label, double value)> BuildSeries()
+    {
+        var list = new List<(string, double)>();
+        if (_rows is null || string.IsNullOrEmpty(_valueCol)) return list;
+        int i = 0;
+        foreach (var r in _rows)
+        {
+            i++;
+            if (!r.TryGetValue(_valueCol, out var v) || !TryToDouble(v, out var d)) continue;
+            string label = !string.IsNullOrEmpty(_labelCol) && r.TryGetValue(_labelCol, out var lv)
+                ? Stringify(lv) : i.ToString();
+            list.Add((label, d));
+        }
+        return list;
+    }
+
+    private string BuildSvg()
+    {
+        var series = BuildSeries();
+        if (series.Count == 0) return "<p class='osos-muted'>Çizilecek sayısal veri yok.</p>";
+
+        double max = series.Max(p => p.value);
+        double min = Math.Min(0, series.Min(p => p.value));
+        double range = max - min; if (range <= 0) range = 1;
+        const int W = 900, H = 320, padL = 56, padB = 64, padT = 12, padR = 12;
+        int plotW = W - padL - padR, plotH = H - padT - padB;
+        int n = series.Count;
+        double bw = (double)plotW / n;
+        double zeroY = padT + plotH - (0 - min) / range * plotH;
+
+        var sb = new StringBuilder();
+        sb.Append($"<svg viewBox='0 0 {W} {H}' class='osos-chart' preserveAspectRatio='xMidYMid meet' xmlns='http://www.w3.org/2000/svg'>");
+        // eksenler
+        sb.Append($"<line x1='{padL}' y1='{padT}' x2='{padL}' y2='{padT + plotH}' stroke='#ccc'/>");
+        sb.Append($"<line x1='{padL}' y1='{padT + plotH}' x2='{padL + plotW}' y2='{padT + plotH}' stroke='#ccc'/>");
+        sb.Append($"<line x1='{padL}' y1='{F(zeroY)}' x2='{padL + plotW}' y2='{F(zeroY)}' stroke='#e0e0e0' stroke-dasharray='3,3'/>");
+        sb.Append($"<text x='4' y='{F(padT + 8)}' class='osos-chart-axis'>{Esc(F2(max))}</text>");
+        sb.Append($"<text x='4' y='{F(padT + plotH)}' class='osos-chart-axis'>{Esc(F2(min))}</text>");
+
+        for (int i = 0; i < n; i++)
+        {
+            var p = series[i];
+            double barH = Math.Abs(p.value) / range * plotH;
+            double x = padL + i * bw + bw * 0.15;
+            double w = bw * 0.7;
+            double y = p.value >= 0 ? zeroY - barH : zeroY;
+            sb.Append($"<rect x='{F(x)}' y='{F(y)}' width='{F(w)}' height='{F(barH)}' fill='#6b2fb3'><title>{Esc(p.label)}: {Esc(F2(p.value))}</title></rect>");
+            if (n <= 24)
+            {
+                double cx = x + w / 2, ty = padT + plotH + 14;
+                sb.Append($"<text x='{F(cx)}' y='{F(ty)}' transform='rotate(35 {F(cx)} {F(ty)})' class='osos-chart-label'>{Esc(Trim(p.label))}</text>");
+            }
+        }
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private static bool IsNumeric(JsonElement v) => v.ValueKind == JsonValueKind.Number
+        || (v.ValueKind == JsonValueKind.String && double.TryParse(v.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out _));
+    private static bool IsEmpty(JsonElement v) => v.ValueKind == JsonValueKind.Null
+        || (v.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(v.GetString()));
+    private static bool TryToDouble(JsonElement v, out double d)
+    {
+        d = 0;
+        if (v.ValueKind == JsonValueKind.Number) return v.TryGetDouble(out d);
+        if (v.ValueKind == JsonValueKind.String) return double.TryParse(v.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out d);
+        return false;
+    }
+    private static string Stringify(JsonElement v) => v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : v.GetRawText();
+    private static string Trim(string s) => s.Length > 12 ? s[..12] : s;
+    private static string F(double d) => d.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string F2(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Esc(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;");
+
+    private static JsonElement? FindFirstObjectArray(JsonElement el)
+    {
+        switch (el.ValueKind)
+        {
+            case JsonValueKind.Array:
+                foreach (var i in el.EnumerateArray()) if (i.ValueKind == JsonValueKind.Object) return el;
+                return null;
+            case JsonValueKind.Object:
+                foreach (var p in el.EnumerateObject())
+                {
+                    var r = FindFirstObjectArray(p.Value);
+                    if (r is not null) return r;
+                }
+                return null;
+            default: return null;
+        }
+    }
+}

@@ -65,6 +65,12 @@ public sealed class OsosApiClient
     public async Task<OsosLinkResponse?> LinkOsosAsync(OsosLinkRequest req)
         => await (await _http.PostAsJsonAsync("api/osos/link", req)).Content.ReadFromJsonAsync<OsosLinkResponse>();
 
+    public async Task<MeDto?> GetMeAsync()
+    {
+        var resp = await _http.GetAsync("api/osos/me");
+        return resp.IsSuccessStatusCode ? await resp.Content.ReadFromJsonAsync<MeDto>() : null;
+    }
+
     public Task<OsosResult?> ConsumptionAsync(ConsumptionQuery q) => Post<ConsumptionQuery, OsosResult>("api/osos/consumption", q);
     public Task<OsosResult?> EndexAsync(EndexQuery q) => Post<EndexQuery, OsosResult>("api/osos/endex", q);
     public Task<OsosResult?> ProfilesAsync(ProfilesQuery q) => Post<ProfilesQuery, OsosResult>("api/osos/profiles", q);

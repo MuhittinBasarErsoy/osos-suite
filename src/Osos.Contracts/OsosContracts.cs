@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Osos.Contracts;
 
 /// <summary>Tüm sorgu ekranlarının ortak alanları.</summary>
@@ -6,9 +8,13 @@ public abstract record OsosQueryBase
     public long Serno { get; init; }
     public DateTime StartDate { get; init; }
     public DateTime EndDate { get; init; }
-    public int[]? Selected { get; init; }
+    /// <summary>Seçili tesisat Serno'ları; boş = tümü.</summary>
+    public long[]? Selected { get; init; }
     public int TotalItemCount { get; init; }
 }
+
+/// <summary>Giriş yapan müşterinin Serno'su + tesisat/abone listesi.</summary>
+public sealed record MeDto(long Serno, JsonElement Subscriptions);
 
 public sealed record ConsumptionQuery : OsosQueryBase
 {

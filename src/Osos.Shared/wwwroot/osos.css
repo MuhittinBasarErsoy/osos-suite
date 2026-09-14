@@ -59,3 +59,14 @@ body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: va
 .osos-error { color: var(--osos-danger); }
 .osos-ok { color: var(--osos-ok); }
 .osos-list { line-height: 1.8; }
+
+/* Grafik + tesisat seçici */
+.osos-chart { width: 100%; height: auto; background: #fff; }
+.osos-chart-axis { font-size: 11px; fill: var(--osos-muted); }
+.osos-chart-label { font-size: 10px; fill: var(--osos-muted); }
+.osos-chart-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.osos-chart-controls label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--osos-muted); }
+.osos-chart-controls select { padding: .35rem; border: 1px solid var(--osos-border); border-radius: 8px; }
+.osos-picker { margin-top: .75rem; }
+.osos-picker summary { cursor: pointer; color: var(--osos-primary); font-weight: 600; }
+.osos-picker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .3rem; margin-top: .5rem; max-height: 260px; overflow-y: auto; padding: .5rem; border: 1px solid var(--osos-border); border-radius: 8px; }

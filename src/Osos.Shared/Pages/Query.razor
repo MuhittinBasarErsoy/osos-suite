@@ -1,4 +1,5 @@
 @page "/query"
+@using System.Text.Json
 @inject OsosApiClient Api
 
 <h2>Sorgu</h2>
@@ -42,43 +43,127 @@ else
             }
             <button class="osos-btn" disabled="@_busy" @onclick="Run">@((_busy) ? "Sorgulanıyor..." : "Ara")</button>
         </div>
+
+        @* Tesisat seçici (tüketim/endeks/profil) *@
+        @if (_screen is "Consumption" or "Endex" or "Profiles" && _subs.Count > 0)
+        {
+            <details class="osos-picker">
+                <summary>Tesisat filtresi (@(_selected.Count == 0 ? "tümü" : $"{_selected.Count} seçili"))</summary>
+                <div class="osos-picker-list">
+                    @foreach (var s in _subs)
+                    {
+                        <label class="osos-check">
+                            <input type="checkbox" checked="@_selected.Contains(s.Serno)"
+                                   @onchange="e => Toggle(s.Serno, (bool)e.Value!)" />
+                            <span>@s.Label <span class="osos-muted">#@s.Serno</span></span>
+                        </label>
+                    }
+                </div>
+            </details>
+        }
         @if (_msg is not null){ <p class="osos-error">@_msg</p> }
     </div>
 
     @if (_result is not null)
     {
         <div class="osos-card">
-            <p class="osos-muted">Kaydedildi (geçmiş #@_result.SearchHistoryId) — @_result.RowCount satır.</p>
-            <ResultTable Json="@_result.RawJson" />
+            <div class="osos-tabs">
+                <button class="@Tab("table")" @onclick='() => _view = "table"'>Tablo</button>
+                <button class="@Tab("chart")" @onclick='() => _view = "chart"'>Grafik</button>
+                <span class="osos-muted" style="margin-left:auto;align-self:center">
+                    Kaydedildi (geçmiş #@_result.SearchHistoryId) — @_result.RowCount satır
+                </span>
+            </div>
+            @if (_view == "table")
+            {
+                <ResultTable Json="@_result.RawJson" />
+            }
+            else
+            {
+                <ResultChart Json="@_result.RawJson" />
+            }
         </div>
     }
 }
 
 @code {
     private string _screen = "Consumption";
-    private long _serno, _ownerSerno;
+    private long _ownerSerno;
     private DateTime _start = DateTime.Today.AddDays(-7);
     private DateTime _end = DateTime.Today;
     private int _type = 2;
     private bool _busy;
     private string? _msg;
     private OsosResult? _result;
+    private string _view = "table";
+
+    private record Sub(long Serno, string Label);
+    private List<Sub> _subs = new();
+    private readonly HashSet<long> _selected = new();
+
+    private string Tab(string v) => v == _view ? "osos-tab osos-tab-active" : "osos-tab";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Api.IsAuthenticated) await LoadSubscriptions();
+    }
+
+    private async Task LoadSubscriptions()
+    {
+        try
+        {
+            var me = await Api.GetMeAsync();
+            if (me is null) return;
+            var subs = new List<Sub>();
+            if (me.Subscriptions.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in me.Subscriptions.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    long serno = item.TryGetProperty("Serno", out var sv) && sv.TryGetInt64(out var s) ? s : 0;
+                    subs.Add(new Sub(serno, BuildLabel(item)));
+                }
+            }
+            _subs = subs;
+        }
+        catch { /* abone listesi opsiyonel */ }
+    }
+
+    private static string BuildLabel(JsonElement obj)
+    {
+        // Öncelikli alan adları, yoksa ilk birkaç metin alanı
+        string[] prefer = { "Unvan", "Title", "Adres", "Address", "IdentifierValue", "Name", "TesisatNo", "MeterNo" };
+        foreach (var p in prefer)
+            if (obj.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+                return v.GetString()!;
+        foreach (var p in obj.EnumerateObject())
+            if (p.Value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(p.Value.GetString()) && p.Name != "RecordStatus")
+                return p.Value.GetString()!;
+        return "Tesisat";
+    }
+
+    private void Toggle(long serno, bool on)
+    {
+        if (on) _selected.Add(serno); else _selected.Remove(serno);
+    }
+
+    private long[] Selected() => _selected.Count == 0 ? Array.Empty<long>() : _selected.ToArray();
 
     private async Task Run()
     {
-        _busy = true; _msg = null; _result = null;
+        _busy = true; _msg = null; _result = null; _view = "table";
         try
         {
             _result = _screen switch
             {
-                "Consumption" => await Api.ConsumptionAsync(new ConsumptionQuery { Serno = _serno, StartDate = _start, EndDate = _end, Type = _type }),
-                "Endex" => await Api.EndexAsync(new EndexQuery { Serno = _serno, StartDate = _start, EndDate = _end }),
-                "Profiles" => await Api.ProfilesAsync(new ProfilesQuery { Serno = _serno, StartDate = _start, EndDate = _end }),
-                "Subscriptions" => await Api.SubscriptionsAsync(new SubscriptionsQuery { Serno = _serno }),
+                "Consumption" => await Api.ConsumptionAsync(new ConsumptionQuery { StartDate = _start, EndDate = _end, Type = _type, Selected = Selected() }),
+                "Endex" => await Api.EndexAsync(new EndexQuery { StartDate = _start, EndDate = _end, Selected = Selected() }),
+                "Profiles" => await Api.ProfilesAsync(new ProfilesQuery { StartDate = _start, EndDate = _end, Selected = Selected() }),
+                "Subscriptions" => await Api.SubscriptionsAsync(new SubscriptionsQuery()),
                 "Dashboard" => await Api.OwnerConsumptionsAsync(new OwnerConsumptionsQuery { OwnerSerno = _ownerSerno, StartDate = _start, EndDate = _end }),
                 _ => null
             };
-            if (_result is null) _msg = "Sorgu başarısız. OSOS hesabı bağlı mı ve Serno doğru mu?";
+            if (_result is null) _msg = "Sorgu başarısız. OSOS hesabı bağlı mı?";
         }
         catch (Exception ex) { _msg = ex.Message; }
         finally { _busy = false; }
