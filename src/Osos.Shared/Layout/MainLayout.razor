@@ -1,0 +1,24 @@
+@inherits LayoutComponentBase
+@inject OsosApiClient Api
+
+<div class="osos-app">
+    <NavMenu />
+    <main class="osos-main">
+        <div class="osos-content">
+            @Body
+        </div>
+    </main>
+</div>
+
+@code {
+    private static bool _initialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!_initialized)
+        {
+            _initialized = true;
+            await Api.InitializeAsync();
+        }
+    }
+}

@@ -1,0 +1,100 @@
+@using System.Text.Json
+
+@if (_rows is null)
+{
+    <p class="osos-muted">Sonuç yok.</p>
+}
+else if (_rows.Count == 0)
+{
+    <p class="osos-muted">Kayıt bulunamadı.</p>
+}
+else
+{
+    <div class="osos-table-wrap">
+        <table class="osos-table">
+            <thead>
+                <tr>@foreach (var c in _columns){ <th>@c</th> }</tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        @foreach (var c in _columns)
+                        {
+                            <td>@(row.TryGetValue(c, out var v) ? v : "")</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="osos-muted">@_rows.Count satır</p>
+}
+
+@code {
+    [Parameter] public string? Json { get; set; }
+
+    private List<Dictionary<string, string>>? _rows;
+    private List<string> _columns = new();
+
+    protected override void OnParametersSet()
+    {
+        _rows = null;
+        _columns = new();
+        if (string.IsNullOrWhiteSpace(Json)) return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(Json);
+            var arr = FindFirstObjectArray(doc.RootElement);
+            if (arr is null) return;
+
+            var rows = new List<Dictionary<string, string>>();
+            var cols = new List<string>();
+            foreach (var item in arr.Value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                var dict = new Dictionary<string, string>();
+                foreach (var p in item.EnumerateObject())
+                {
+                    if (!cols.Contains(p.Name)) cols.Add(p.Name);
+                    dict[p.Name] = Stringify(p.Value);
+                }
+                rows.Add(dict);
+            }
+            _rows = rows;
+            _columns = cols;
+        }
+        catch { _rows = null; }
+    }
+
+    private static JsonElement? FindFirstObjectArray(JsonElement el)
+    {
+        switch (el.ValueKind)
+        {
+            case JsonValueKind.Array:
+                foreach (var i in el.EnumerateArray())
+                    if (i.ValueKind == JsonValueKind.Object) return el;
+                return null;
+            case JsonValueKind.Object:
+                foreach (var p in el.EnumerateObject())
+                {
+                    var r = FindFirstObjectArray(p.Value);
+                    if (r is not null) return r;
+                }
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    private static string Stringify(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.String => v.GetString() ?? "",
+        JsonValueKind.Number => v.GetRawText(),
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        JsonValueKind.Null => "",
+        _ => v.GetRawText()
+    };
+}

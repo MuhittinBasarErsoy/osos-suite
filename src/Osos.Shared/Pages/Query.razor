@@ -1,0 +1,86 @@
+@page "/query"
+@inject OsosApiClient Api
+
+<h2>Sorgu</h2>
+
+@if (!Api.IsAuthenticated)
+{
+    <p class="osos-error">Önce <a href="/account">giriş</a> yapın ve OSOS hesabınızı bağlayın.</p>
+}
+else
+{
+    <div class="osos-card">
+        <div class="osos-form osos-form-grid">
+            <label>Ekran
+                <select @bind="_screen">
+                    <option value="Consumption">Tüketim</option>
+                    <option value="Endex">Endeks</option>
+                    <option value="Profiles">Akım/Gerilim/Cosφ</option>
+                    <option value="Subscriptions">Aboneler</option>
+                    <option value="Dashboard">Dashboard (Owner tüketim)</option>
+                </select>
+            </label>
+
+            @if (_screen == "Subscriptions")
+            {
+                <span class="osos-muted">Aboneler için ek bilgi gerekmez — hesabınızdaki tesisatlar listelenir.</span>
+            }
+            else if (_screen == "Dashboard")
+            {
+                <label>Owner Serno (tesisat)<input type="number" @bind="_ownerSerno" /></label>
+                <label>Başlangıç<input type="date" @bind="_start" /></label>
+                <label>Bitiş<input type="date" @bind="_end" /></label>
+            }
+            else
+            {
+                <label>Başlangıç<input type="date" @bind="_start" /></label>
+                <label>Bitiş<input type="date" @bind="_end" /></label>
+                @if (_screen == "Consumption")
+                {
+                    <label>Type<input type="number" @bind="_type" /></label>
+                }
+            }
+            <button class="osos-btn" disabled="@_busy" @onclick="Run">@((_busy) ? "Sorgulanıyor..." : "Ara")</button>
+        </div>
+        @if (_msg is not null){ <p class="osos-error">@_msg</p> }
+    </div>
+
+    @if (_result is not null)
+    {
+        <div class="osos-card">
+            <p class="osos-muted">Kaydedildi (geçmiş #@_result.SearchHistoryId) — @_result.RowCount satır.</p>
+            <ResultTable Json="@_result.RawJson" />
+        </div>
+    }
+}
+
+@code {
+    private string _screen = "Consumption";
+    private long _serno, _ownerSerno;
+    private DateTime _start = DateTime.Today.AddDays(-7);
+    private DateTime _end = DateTime.Today;
+    private int _type = 2;
+    private bool _busy;
+    private string? _msg;
+    private OsosResult? _result;
+
+    private async Task Run()
+    {
+        _busy = true; _msg = null; _result = null;
+        try
+        {
+            _result = _screen switch
+            {
+                "Consumption" => await Api.ConsumptionAsync(new ConsumptionQuery { Serno = _serno, StartDate = _start, EndDate = _end, Type = _type }),
+                "Endex" => await Api.EndexAsync(new EndexQuery { Serno = _serno, StartDate = _start, EndDate = _end }),
+                "Profiles" => await Api.ProfilesAsync(new ProfilesQuery { Serno = _serno, StartDate = _start, EndDate = _end }),
+                "Subscriptions" => await Api.SubscriptionsAsync(new SubscriptionsQuery { Serno = _serno }),
+                "Dashboard" => await Api.OwnerConsumptionsAsync(new OwnerConsumptionsQuery { OwnerSerno = _ownerSerno, StartDate = _start, EndDate = _end }),
+                _ => null
+            };
+            if (_result is null) _msg = "Sorgu başarısız. OSOS hesabı bağlı mı ve Serno doğru mu?";
+        }
+        catch (Exception ex) { _msg = ex.Message; }
+        finally { _busy = false; }
+    }
+}

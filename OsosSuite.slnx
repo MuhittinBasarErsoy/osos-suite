@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Osos.Cli/Osos.Cli.csproj" />
+    <Project Path="src/Osos.Contracts/Osos.Contracts.csproj" />
+    <Project Path="src/Osos.Core/Osos.Core.csproj" />
+    <Project Path="src/Osos.Maui/Osos.Maui.csproj" />
+    <Project Path="src/Osos.Server/Osos.Server.csproj" />
+    <Project Path="src/Osos.Shared/Osos.Shared.csproj" />
+    <Project Path="src/Osos.Web/Osos.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Osos.Core.Tests/Osos.Core.Tests.csproj" />
+  </Folder>
+</Solution>

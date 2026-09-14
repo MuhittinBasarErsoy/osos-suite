@@ -1,0 +1,61 @@
+:root {
+    --osos-bg: #f4f6fb;
+    --osos-card: #ffffff;
+    --osos-primary: #6b2fb3;
+    --osos-primary-2: #8e44d0;
+    --osos-text: #1f2430;
+    --osos-muted: #6b7280;
+    --osos-border: #e5e7eb;
+    --osos-danger: #d9534f;
+    --osos-ok: #2e7d32;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--osos-bg); color: var(--osos-text); }
+
+.osos-app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.osos-nav {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    background: linear-gradient(90deg, var(--osos-primary), var(--osos-primary-2));
+    color: #fff; padding: .6rem 1rem;
+}
+.osos-brand { font-weight: 700; font-size: 1.1rem; }
+.osos-links { display: flex; gap: .25rem; flex-wrap: wrap; flex: 1; }
+.osos-link { color: #fff; text-decoration: none; padding: .4rem .7rem; border-radius: 8px; opacity: .9; }
+.osos-link:hover, .osos-link.active { background: rgba(255,255,255,.2); opacity: 1; }
+.osos-user { display: flex; align-items: center; gap: .5rem; }
+.osos-username { font-weight: 600; }
+.osos-btn-link { background: none; border: 1px solid rgba(255,255,255,.5); color: #fff; padding: .3rem .6rem; border-radius: 8px; cursor: pointer; }
+
+.osos-main { flex: 1; }
+.osos-content { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+
+.osos-card { background: var(--osos-card); border: 1px solid var(--osos-border); border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+
+.osos-form { display: flex; flex-direction: column; gap: .7rem; max-width: 420px; }
+.osos-form-grid { max-width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+.osos-form label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--osos-muted); }
+.osos-form input, .osos-form select { padding: .5rem; border: 1px solid var(--osos-border); border-radius: 8px; font-size: 1rem; background: #fff; }
+.osos-check { flex-direction: row !important; align-items: center; gap: .5rem; }
+
+.osos-btn { background: var(--osos-primary); color: #fff; border: none; padding: .6rem 1.1rem; border-radius: 10px; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+.osos-btn:hover { background: var(--osos-primary-2); }
+.osos-btn:disabled { opacity: .6; cursor: default; }
+.osos-btn-sm { background: #eef; border: 1px solid var(--osos-border); padding: .25rem .5rem; border-radius: 6px; cursor: pointer; margin-right: .25rem; }
+.osos-danger { color: var(--osos-danger); border-color: var(--osos-danger); }
+
+.osos-tabs { display: flex; gap: .25rem; margin-bottom: 1rem; }
+.osos-tab { border: 1px solid var(--osos-border); background: #fff; padding: .4rem .9rem; border-radius: 8px; cursor: pointer; }
+.osos-tab-active { background: var(--osos-primary); color: #fff; border-color: var(--osos-primary); }
+
+.osos-table-wrap { overflow-x: auto; }
+.osos-table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+.osos-table th, .osos-table td { border: 1px solid var(--osos-border); padding: .4rem .6rem; text-align: left; white-space: nowrap; }
+.osos-table thead th { background: #f0edf7; position: sticky; top: 0; }
+.osos-actions { white-space: nowrap; }
+
+.osos-muted { color: var(--osos-muted); font-size: .88rem; }
+.osos-error { color: var(--osos-danger); }
+.osos-ok { color: var(--osos-ok); }
+.osos-list { line-height: 1.8; }

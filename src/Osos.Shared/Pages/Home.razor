@@ -1,0 +1,20 @@
+@page "/"
+@inject OsosApiClient Api
+
+<h2>OSOS Suite</h2>
+<div class="osos-card">
+    <p>UEDAŞ OSOS portal verilerinize tüm cihazlardan erişin ve aramalarınızı kaydedin.</p>
+    <ul class="osos-list">
+        <li><strong>Sorgu:</strong> Tüketim, Endeks, Akım/Gerilim/Cosφ, Aboneler, Dashboard.</li>
+        <li><strong>Geçmiş:</strong> Yaptığınız aramalar MSSQL'e kaydedilir; tek tıkla tekrar çalıştırın.</li>
+        <li><strong>Platformlar:</strong> Web, Android, Windows masaüstü, tablet, mobil.</li>
+    </ul>
+    @if (!Api.IsAuthenticated)
+    {
+        <a class="osos-btn" href="/account">Başlamak için giriş yapın</a>
+    }
+    else
+    {
+        <a class="osos-btn" href="/query">Sorguya git</a>
+    }
+</div>

@@ -1,0 +1,37 @@
+@implements IDisposable
+@inject OsosApiClient Api
+@inject NavigationManager Nav
+
+<nav class="osos-nav">
+    <div class="osos-brand">⚡ OSOS Suite</div>
+    <div class="osos-links">
+        <NavLink class="osos-link" href="/" Match="NavLinkMatch.All">Anasayfa</NavLink>
+        <NavLink class="osos-link" href="/query">Sorgu</NavLink>
+        <NavLink class="osos-link" href="/history">Geçmiş</NavLink>
+        <NavLink class="osos-link" href="/account">Hesap</NavLink>
+    </div>
+    <div class="osos-user">
+        @if (Api.IsAuthenticated)
+        {
+            <span class="osos-username">@(Api.Username ?? "Kullanıcı")</span>
+            <button class="osos-btn-link" @onclick="Logout">Çıkış</button>
+        }
+        else
+        {
+            <NavLink class="osos-link" href="/account">Giriş</NavLink>
+        }
+    </div>
+</nav>
+
+@code {
+    protected override void OnInitialized() => Api.AuthChanged += OnAuthChanged;
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task Logout()
+    {
+        await Api.LogoutAsync();
+        Nav.NavigateTo("/account");
+    }
+
+    public void Dispose() => Api.AuthChanged -= OnAuthChanged;
+}

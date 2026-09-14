@@ -1,0 +1,86 @@
+@page "/account"
+@inject OsosApiClient Api
+
+<h2>Hesap</h2>
+
+@if (!Api.IsAuthenticated)
+{
+    <div class="osos-card">
+        <div class="osos-tabs">
+            <button class="@Tab(false)" @onclick="() => _register = false">Giriş</button>
+            <button class="@Tab(true)" @onclick="() => _register = true">Kayıt</button>
+        </div>
+
+        <div class="osos-form">
+            <label>Kullanıcı adı<input @bind="_username" /></label>
+            @if (_register)
+            {
+                <label>E-posta<input @bind="_email" type="email" /></label>
+            }
+            <label>Şifre<input @bind="_password" type="password" /></label>
+            <button class="osos-btn" disabled="@_busy" @onclick="Submit">
+                @(_register ? "Kayıt ol" : "Giriş yap")
+            </button>
+            @if (_msg is not null){ <p class="osos-error">@_msg</p> }
+        </div>
+    </div>
+}
+else
+{
+    <div class="osos-card">
+        <p>Giriş yapıldı: <strong>@Api.Username</strong></p>
+    </div>
+
+    <div class="osos-card">
+        <h3>OSOS hesabı bağla</h3>
+        <p class="osos-muted">OSOS portal kullanıcı adı ve şifrenizi bağlayın. Sorgular bu hesapla yapılır.</p>
+        <div class="osos-form">
+            <label>OSOS Kullanıcı Adı<input @bind="_ososUser" /></label>
+            <label>OSOS Şifre<input @bind="_ososPass" type="password" /></label>
+            <label class="osos-check"><input type="checkbox" @bind="_remember" /> Beni hatırla</label>
+            <button class="osos-btn" disabled="@_busy" @onclick="LinkOsos">Bağla / Doğrula</button>
+            @if (_ososMsg is not null){ <p class="@(_ososOk ? "osos-ok" : "osos-error")">@_ososMsg</p> }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _register;
+    private bool _busy;
+    private string _username = "", _email = "", _password = "";
+    private string? _msg;
+
+    private string _ososUser = "", _ososPass = "";
+    private bool _remember = true;
+    private string? _ososMsg;
+    private bool _ososOk;
+
+    private string Tab(bool reg) => reg == _register ? "osos-tab osos-tab-active" : "osos-tab";
+
+    private async Task Submit()
+    {
+        _busy = true; _msg = null;
+        try
+        {
+            AuthResponse? res = _register
+                ? await Api.RegisterAsync(new RegisterRequest(_username, _email, _password))
+                : await Api.LoginAsync(new AppLoginRequest(_username, _password));
+            if (res is null) _msg = _register ? "Kayıt başarısız (şifre en az 6 karakter, büyük harf+rakam)." : "Giriş başarısız.";
+        }
+        catch (Exception ex) { _msg = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task LinkOsos()
+    {
+        _busy = true; _ososMsg = null;
+        try
+        {
+            var res = await Api.LinkOsosAsync(new OsosLinkRequest(_ososUser, _ososPass, _remember));
+            _ososOk = res?.Success ?? false;
+            _ososMsg = res?.Message ?? "Bağlantı hatası.";
+        }
+        catch (Exception ex) { _ososOk = false; _ososMsg = ex.Message; }
+        finally { _busy = false; }
+    }
+}

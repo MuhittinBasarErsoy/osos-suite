@@ -1,0 +1,99 @@
+@page "/history"
+@inject OsosApiClient Api
+
+<h2>Arama Geçmişi</h2>
+
+@if (!Api.IsAuthenticated)
+{
+    <p class="osos-error">Önce <a href="/account">giriş</a> yapın.</p>
+}
+else
+{
+    <div class="osos-card">
+        <button class="osos-btn" @onclick="Load">Yenile</button>
+        @if (_page is null)
+        {
+            <p class="osos-muted">Yükleniyor...</p>
+        }
+        else if (_page.Items.Count == 0)
+        {
+            <p class="osos-muted">Henüz arama yok.</p>
+        }
+        else
+        {
+            <div class="osos-table-wrap">
+                <table class="osos-table">
+                    <thead>
+                        <tr><th>#</th><th>Ekran</th><th>MethodName</th><th>Serno</th><th>Tarih</th><th>Satır</th><th>Oluşturma</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in _page.Items)
+                        {
+                            <tr>
+                                <td>@h.Id</td>
+                                <td>@h.Screen</td>
+                                <td>@h.MethodName</td>
+                                <td>@h.Serno</td>
+                                <td>@(h.StartDate?.ToString("dd.MM.yy"))–@(h.EndDate?.ToString("dd.MM.yy"))</td>
+                                <td>@h.RowCount</td>
+                                <td>@h.CreatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</td>
+                                <td class="osos-actions">
+                                    <button class="osos-btn-sm" @onclick="() => View(h.Id)">Görüntüle</button>
+                                    <button class="osos-btn-sm" @onclick="() => Rerun(h.Id)">Tekrar</button>
+                                    <button class="osos-btn-sm osos-danger" @onclick="() => Delete(h.Id)">Sil</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        @if (_msg is not null){ <p class="osos-muted">@_msg</p> }
+    </div>
+
+    @if (_snapshot is not null)
+    {
+        <div class="osos-card">
+            <h3>Kayıtlı sonuç (#@_viewId)</h3>
+            <ResultTable Json="@_snapshot.ResultJson" />
+        </div>
+    }
+}
+
+@code {
+    private PagedResult<SearchHistoryDto>? _page;
+    private SearchResultDto? _snapshot;
+    private long _viewId;
+    private string? _msg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Api.IsAuthenticated) await Load();
+    }
+
+    private async Task Load()
+    {
+        _msg = null;
+        try { _page = await Api.GetHistoryAsync(); }
+        catch (Exception ex) { _msg = ex.Message; }
+    }
+
+    private async Task View(long id)
+    {
+        _viewId = id;
+        _snapshot = await Api.GetSnapshotAsync(id);
+    }
+
+    private async Task Rerun(long id)
+    {
+        _msg = "Tekrar çalıştırılıyor...";
+        var res = await Api.RerunAsync(id);
+        _msg = res is null ? "Tekrar başarısız." : $"Tekrar çalıştı ({res.RowCount} satır, yeni #{res.SearchHistoryId}).";
+        await Load();
+    }
+
+    private async Task Delete(long id)
+    {
+        if (await Api.DeleteAsync(id)) { if (_viewId == id) _snapshot = null; await Load(); }
+    }
+}
