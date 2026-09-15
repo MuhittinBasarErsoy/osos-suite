@@ -82,10 +82,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Blazor WASM istemcisini aynı sunucudan sun (tek uygulama, tek origin).
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
 app.UseHttpsRedirection();
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// API dışındaki tüm yollar Blazor index.html'e düşer (SPA yönlendirmesi).
+app.MapFallbackToFile("index.html");
 
 app.Run();
