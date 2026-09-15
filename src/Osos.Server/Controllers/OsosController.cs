@@ -57,7 +57,10 @@ public sealed class OsosController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "OSOS link hatası");
-            return BadRequest(new OsosLinkResponse(false, $"{ex.GetType().Name}: {ex.Message}"));
+            var msg = ex.Message;
+            for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+                msg += " → " + inner.Message;
+            return BadRequest(new OsosLinkResponse(false, $"{ex.GetType().Name}: {msg}"));
         }
     }
 

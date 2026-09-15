@@ -28,8 +28,27 @@ public sealed class OsosApiClient
         {
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             IsAuthenticated = true;
+            Username = TryReadUsername(token);
             AuthChanged?.Invoke();
         }
+    }
+
+    /// <summary>JWT payload'ından kullanıcı adını okur (yalnızca gösterim; doğrulama sunucuda).</summary>
+    private static string? TryReadUsername(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+            string p = parts[1].Replace('-', '+').Replace('_', '/');
+            p = p.PadRight(p.Length + (4 - p.Length % 4) % 4, '=');
+            using var doc = System.Text.Json.JsonDocument.Parse(Convert.FromBase64String(p));
+            foreach (var name in new[] { "unique_name", "name" })
+                if (doc.RootElement.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return v.GetString();
+            return null;
+        }
+        catch { return null; }
     }
 
     // ---- Kimlik ----
