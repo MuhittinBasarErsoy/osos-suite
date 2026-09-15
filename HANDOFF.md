@@ -82,19 +82,24 @@ Gerçek login gövdesi (tarayıcıdan yakalandı) SADECE şu alanlar:
 - Token saklama: Web → localStorage (`LocalStorageTokenStore`), MAUI → SecureStorage (`SecureStorageTokenStore`).
 - MAUI API adresi: Android emülatör `http://10.0.2.2:5199`, Windows `http://localhost:5199` (`MauiProgram.cs`).
 
-## 6. Nasıl çalıştırılır
+## 6. Nasıl çalıştırılır  (TEK UYGULAMA — güncellendi)
 
-```bash
-# Backend
-dotnet run --project src/Osos.Server --urls http://localhost:5199
-# Web (ayrı terminal)
-dotnet run --project src/Osos.Web --urls http://localhost:5100
-```
-Tarayıcı: `http://localhost:5100` → Kayıt ol → **Hesap → OSOS hesabı bağla** (gerçek OSOS kullanıcı adı/şifre) → Sorgu / Geçmiş.
+Osos.Server artık Blazor WASM web'i de kendisi barındırıyor (hosted model). Yani **tek proje çalışır**, web + API aynı adreste. CORS / mixed-content / iki-proje koordinasyonu YOK.
 
-**ÖNEMLİ:** Web **http** üzerinden açılmalı (https web → http backend "mixed content" ile engellenir). Backend çalışmıyorsa "Failed to fetch" alınır.
+- **Visual Studio:** Startup project = **yalnızca Osos.Server** (Multiple startup KULLANMAYIN). F5 → tarayıcı `https://localhost:7085` açılır (hem web hem API).
+- **Terminal:**
+  ```bash
+  dotnet run --project src/Osos.Server --urls https://localhost:7085
+  ```
+  Sonra tarayıcı: `https://localhost:7085`
 
-**Derleme kilidi:** Uygulama çalışırken yeniden derlerseniz "file locked by Osos.Server" hatası çıkar → önce çalışan örneği durdurun (VS'te Stop / terminalde Ctrl+C).
+Akış: Kayıt ol → **Hesap → OSOS hesabı bağla** (gerçek OSOS kullanıcı adı/şifre) → Sorgu / Geçmiş.
+
+**Notlar:**
+- Web ile API aynı origin olduğu için `apiBase` boş (aynı origin). Web'i AYRI barındırırsanız `src/Osos.Web/wwwroot/appsettings.json` → `ApiBaseUrl` verin.
+- **Derleme kilidi:** Uygulama çalışırken Rebuild yaparsanız "file locked by Osos.Server" çıkar → önce durdurun (VS Stop / Ctrl+C).
+- LocalDB boşta durursa ilk istekte retry devreye girer; takılırsa `sqllocaldb start MSSQLLocalDB`.
+- Dev HTTPS sertifikası güvenilir olmalı (VS kurulumu genelde halleder; gerekirse `dotnet dev-certs https --trust`).
 
 **Not (VS debugger):** "fatal error loading metadata for System.Private.CoreLib" çıkarsa `.vs` klasörünü silip Rebuild yapın, ya da Ctrl+F5 / terminalden çalıştırın.
 
