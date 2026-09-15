@@ -50,6 +50,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<OsosSessionService>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<ResultMaterializer>();
 builder.Services.AddScoped<SearchService>();
 
 builder.Services.AddControllers();

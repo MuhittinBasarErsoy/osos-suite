@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Osos.Contracts;
 using Osos.Server.Data;
 
@@ -10,11 +11,15 @@ public sealed class SearchService
 {
     private readonly AppDbContext _db;
     private readonly OsosSessionService _osos;
+    private readonly ResultMaterializer _materializer;
+    private readonly ILogger<SearchService> _logger;
 
-    public SearchService(AppDbContext db, OsosSessionService osos)
+    public SearchService(AppDbContext db, OsosSessionService osos, ResultMaterializer materializer, ILogger<SearchService> logger)
     {
         _db = db;
         _osos = osos;
+        _materializer = materializer;
+        _logger = logger;
     }
 
     /// <summary>OSOS tarih formatı: yyyyMMddHHmmss (long).</summary>
@@ -42,6 +47,10 @@ public sealed class SearchService
         };
         _db.SearchHistories.Add(history);
         await _db.SaveChangesAsync(ct);
+
+        // JSON dışında, ekran tipine özel tabloya da gerçek sütunlarla yaz (best-effort).
+        try { await _materializer.MaterializeAsync(screen, history.Id, appUserId, serno, rawJson, ct); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Sonuç tabloya yazılamadı ({Screen})", screen); }
 
         return new OsosResult(rawJson, rowCount, history.Id);
     }
