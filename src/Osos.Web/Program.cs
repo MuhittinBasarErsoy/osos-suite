@@ -9,8 +9,9 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Backend API adresi (geliştirme). Yayında appsettings/ortam ile değiştirilebilir.
-var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5199/";
+// Backend API adresi. wwwroot/appsettings.json → ApiBaseUrl ile değiştirilebilir (yeniden derleme gerekmez).
+// Varsayılan: Osos.Server'ın VS https portu (mixed-content'i önlemek için https web → https backend).
+var apiBase = builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7085/";
 
 // WASM'de token'ı localStorage'da sakla (AddOsosShared'dan önce → TryAdd onu kullanır).
 builder.Services.TryAddSingleton<ITokenStore, LocalStorageTokenStore>();
