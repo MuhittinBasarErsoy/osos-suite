@@ -61,21 +61,41 @@ public sealed class OsosController : ControllerBase
         }
     }
 
-    /// <summary>Giriş yapan müşterinin Serno'su + tesisat/abone listesi (UI otomatik doldurma için).</summary>
+    /// <summary>Giriş yapan müşterinin Serno'su + tesisat/abone listesi (zengin: ünvan/adres vb.).</summary>
     [HttpGet("me")]
     public async Task<ActionResult<object>> Me(CancellationToken ct)
     {
         try
         {
-            var (serno, subsJson) = await _osos.GetProfileAsync(Uid, ct);
-            using var doc = subsJson is null ? null : System.Text.Json.JsonDocument.Parse(subsJson);
-            return Ok(new
-            {
-                serno,
-                subscriptions = doc?.RootElement.Clone() ?? default
-            });
+            long serno = await _osos.GetCustomerSernoAsync(Uid, ct);
+            // Zengin tesisat listesi login yanıtında değil, bu serviste gelir (ünvan/adres/tarife vb.).
+            string json = await _osos.CallAsync(Uid, OsosMethods.GetCustomerPortalSubscriptions,
+                new { Serno = serno, PageSize = 1000, PageNumber = 1 }, ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var arr = FindFirstObjectArray(doc.RootElement);
+            return Ok(new { serno, subscriptions = arr?.Clone() ?? default });
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Yanıttaki ilk obje dizisini bulur (esb sarmalayıcısının içinde olabilir).
+    private static System.Text.Json.JsonElement? FindFirstObjectArray(System.Text.Json.JsonElement el)
+    {
+        switch (el.ValueKind)
+        {
+            case System.Text.Json.JsonValueKind.Array:
+                foreach (var i in el.EnumerateArray())
+                    if (i.ValueKind == System.Text.Json.JsonValueKind.Object) return el;
+                return null;
+            case System.Text.Json.JsonValueKind.Object:
+                foreach (var p in el.EnumerateObject())
+                {
+                    var r = FindFirstObjectArray(p.Value);
+                    if (r is not null) return r;
+                }
+                return null;
+            default: return null;
+        }
     }
 
     /// <summary>Serno verilmemişse (<=0) müşteri Serno'sunu kullan.</summary>

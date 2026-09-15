@@ -68,7 +68,7 @@ else
                         <label class="osos-check">
                             <input type="checkbox" checked="@_selected.Contains(s.Serno)"
                                    @onchange="e => Toggle(s.Serno, (bool)e.Value!)" />
-                            <span>@s.Label <span class="osos-muted">#@s.Serno</span></span>
+                            <span>@s.Label @if (s.Serno > 0){ <span class="osos-muted">#@s.Serno</span> }</span>
                         </label>
                     }
                 </div>
@@ -134,8 +134,7 @@ else
                 foreach (var item in me.Subscriptions.EnumerateArray())
                 {
                     if (item.ValueKind != JsonValueKind.Object) continue;
-                    long serno = item.TryGetProperty("Serno", out var sv) && sv.TryGetInt64(out var s) ? s : 0;
-                    subs.Add(new Sub(serno, BuildLabel(item)));
+                    subs.Add(new Sub(ExtractSerno(item), BuildLabel(item)));
                 }
             }
             _subs = subs;
@@ -143,17 +142,47 @@ else
         catch { /* abone listesi opsiyonel */ }
     }
 
+    // Serno'yu esnek bul: adında "serno" geçen ilk sayısal alan, yoksa Id/SubscriptionSerno.
+    private static long ExtractSerno(JsonElement obj)
+    {
+        foreach (var p in obj.EnumerateObject())
+            if (p.Name.Contains("serno", StringComparison.OrdinalIgnoreCase) && TryLong(p.Value, out var s)) return s;
+        foreach (var name in new[] { "SubscriptionSerno", "Serno", "Id" })
+            if (obj.TryGetProperty(name, out var v) && TryLong(v, out var s2)) return s2;
+        return 0;
+    }
+
+    private static bool TryLong(JsonElement v, out long val)
+    {
+        val = 0;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out val)) return true;
+        if (v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out val)) return true;
+        return false;
+    }
+
+    private static readonly string[] SkipKeys = { "RecordStatus", "DefinitionType", "AnnounceType" };
+
     private static string BuildLabel(JsonElement obj)
     {
-        // Öncelikli alan adları, yoksa ilk birkaç metin alanı
-        string[] prefer = { "Unvan", "Title", "Adres", "Address", "IdentifierValue", "Name", "TesisatNo", "MeterNo" };
+        // Ünvan/adres/tesisat no gibi anlamlı alanları öncele
+        string[] prefer = { "Unvan", "Title", "MusteriUnvan", "AboneAdi", "Adres", "Address",
+                            "TesisatNo", "Tesisat", "Identifier", "IdentifierValue", "Name", "SayacSeriNo" };
         foreach (var p in prefer)
             if (obj.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
-                return v.GetString()!;
+                return v.GetString()!.Trim();
+
+        // yoksa ilk 2 anlamlı metin alanını birleştir
+        var parts = new List<string>();
         foreach (var p in obj.EnumerateObject())
-            if (p.Value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(p.Value.GetString()) && p.Name != "RecordStatus")
-                return p.Value.GetString()!;
-        return "Tesisat";
+        {
+            if (SkipKeys.Contains(p.Name)) continue;
+            if (p.Value.ValueKind == JsonValueKind.String)
+            {
+                var s = p.Value.GetString();
+                if (!string.IsNullOrWhiteSpace(s)) { parts.Add(s!.Trim()); if (parts.Count == 2) break; }
+            }
+        }
+        return parts.Count > 0 ? string.Join(" · ", parts) : "Tesisat";
     }
 
     private void Toggle(long serno, bool on)
