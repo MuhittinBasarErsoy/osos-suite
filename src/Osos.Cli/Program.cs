@@ -38,7 +38,7 @@ catch (Exception ex)
 
 if (string.IsNullOrWhiteSpace(login.SessionKey))
 {
-    Console.WriteLine($"✗ SessionKey alınamadı. IsSuccess={login.IsSuccess}, Message={login.Message}, ResultCode={login.ResultCode}");
+    Console.WriteLine($"✗ SessionKey alınamadı. Message={login.Message}");
     Console.WriteLine("  (Captcha sunucuda zorunlu olabilir → WebView login fallback gerekir.)");
     return 3;
 }
