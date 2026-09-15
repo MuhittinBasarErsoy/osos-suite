@@ -21,8 +21,11 @@ else
                     <option value="Dashboard">Dashboard (Owner tüketim)</option>
                 </select>
             </label>
-            <label>Serno (boş = otomatik)
-                <input type="number" @bind="_serno" />
+            <label>Tesisat (Serno)
+                <select @bind="_serno">
+                    <option value="0">Otomatik (müşteri)</option>
+                    @foreach (var s in _subs){ <option value="@s.Serno">@s.Label @(s.Serno > 0 ? $"(#{s.Serno})" : "")</option> }
+                </select>
             </label>
             @if (_screen != "Subscriptions")
             {
@@ -120,12 +123,27 @@ else
     private bool _ok;
     private string? _msg;
     private List<JobDto>? _jobs;
+    private List<SubscriptionItem> _subs = new();
 
     private string EffectiveCron => _cronPreset == "custom" ? _customCron.Trim() : _cronPreset;
 
     protected override async Task OnInitializedAsync()
     {
-        if (Api.IsAuthenticated) await Load();
+        if (Api.IsAuthenticated)
+        {
+            await LoadSubscriptions();
+            await Load();
+        }
+    }
+
+    private async Task LoadSubscriptions()
+    {
+        try
+        {
+            var me = await Api.GetMeAsync();
+            if (me is not null) _subs = SubscriptionParser.Parse(me.Subscriptions);
+        }
+        catch { /* opsiyonel */ }
     }
 
     private async Task Load()

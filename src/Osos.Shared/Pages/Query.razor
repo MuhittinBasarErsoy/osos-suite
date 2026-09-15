@@ -111,8 +111,7 @@ else
     private OsosResult? _result;
     private string _view = "table";
 
-    private record Sub(long Serno, string Label);
-    private List<Sub> _subs = new();
+    private List<SubscriptionItem> _subs = new();
     private readonly HashSet<long> _selected = new();
 
     private string Tab(string v) => v == _view ? "osos-tab osos-tab-active" : "osos-tab";
@@ -127,62 +126,9 @@ else
         try
         {
             var me = await Api.GetMeAsync();
-            if (me is null) return;
-            var subs = new List<Sub>();
-            if (me.Subscriptions.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in me.Subscriptions.EnumerateArray())
-                {
-                    if (item.ValueKind != JsonValueKind.Object) continue;
-                    subs.Add(new Sub(ExtractSerno(item), BuildLabel(item)));
-                }
-            }
-            _subs = subs;
+            if (me is not null) _subs = SubscriptionParser.Parse(me.Subscriptions);
         }
         catch { /* abone listesi opsiyonel */ }
-    }
-
-    // Serno'yu esnek bul: adında "serno" geçen ilk sayısal alan, yoksa Id/SubscriptionSerno.
-    private static long ExtractSerno(JsonElement obj)
-    {
-        foreach (var p in obj.EnumerateObject())
-            if (p.Name.Contains("serno", StringComparison.OrdinalIgnoreCase) && TryLong(p.Value, out var s)) return s;
-        foreach (var name in new[] { "SubscriptionSerno", "Serno", "Id" })
-            if (obj.TryGetProperty(name, out var v) && TryLong(v, out var s2)) return s2;
-        return 0;
-    }
-
-    private static bool TryLong(JsonElement v, out long val)
-    {
-        val = 0;
-        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out val)) return true;
-        if (v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out val)) return true;
-        return false;
-    }
-
-    private static readonly string[] SkipKeys = { "RecordStatus", "DefinitionType", "AnnounceType" };
-
-    private static string BuildLabel(JsonElement obj)
-    {
-        // Ünvan/adres/tesisat no gibi anlamlı alanları öncele
-        string[] prefer = { "Unvan", "Title", "MusteriUnvan", "AboneAdi", "Adres", "Address",
-                            "TesisatNo", "Tesisat", "Identifier", "IdentifierValue", "Name", "SayacSeriNo" };
-        foreach (var p in prefer)
-            if (obj.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
-                return v.GetString()!.Trim();
-
-        // yoksa ilk 2 anlamlı metin alanını birleştir
-        var parts = new List<string>();
-        foreach (var p in obj.EnumerateObject())
-        {
-            if (SkipKeys.Contains(p.Name)) continue;
-            if (p.Value.ValueKind == JsonValueKind.String)
-            {
-                var s = p.Value.GetString();
-                if (!string.IsNullOrWhiteSpace(s)) { parts.Add(s!.Trim()); if (parts.Count == 2) break; }
-            }
-        }
-        return parts.Count > 0 ? string.Join(" · ", parts) : "Tesisat";
     }
 
     private void Toggle(long serno, bool on)
