@@ -90,6 +90,18 @@ public sealed class OsosApiClient
     public Task<OsosResult?> RerunAsync(long id) => Post<object?, OsosResult>($"api/searches/{id}/rerun", null);
     public async Task<bool> DeleteAsync(long id) => (await _http.DeleteAsync($"api/searches/{id}")).IsSuccessStatusCode;
 
+    /// <summary>Kayıtlı aramanın CSV'sini indirir (dosya + adı).</summary>
+    public async Task<(byte[] bytes, string fileName)?> ExportCsvAsync(long id)
+    {
+        var resp = await _http.GetAsync($"api/searches/{id}/export");
+        if (!resp.IsSuccessStatusCode) return null;
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        var name = resp.Content.Headers.ContentDisposition?.FileNameStar
+                   ?? resp.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+                   ?? $"arama_{id}.csv";
+        return (bytes, name);
+    }
+
     private async Task<TOut?> Post<TIn, TOut>(string path, TIn body)
     {
         var resp = await _http.PostAsJsonAsync(path, body);

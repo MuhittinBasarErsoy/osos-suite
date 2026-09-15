@@ -34,6 +34,14 @@ public sealed class SearchesController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpGet("{id:long}/export")]
+    public async Task<IActionResult> Export(long id, CancellationToken ct)
+    {
+        var res = await _search.ExportCsvAsync(Uid, id, ct);
+        if (res is null) return NotFound();
+        return File(res.Value.bytes, "text/csv", res.Value.fileName);
+    }
+
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
         => await _search.DeleteAsync(Uid, id, ct) ? NoContent() : NotFound();

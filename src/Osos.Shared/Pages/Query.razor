@@ -1,6 +1,7 @@
 @page "/query"
 @using System.Text.Json
 @inject OsosApiClient Api
+@inject IJSRuntime JS
 
 <h2>Sorgu</h2>
 
@@ -28,7 +29,19 @@ else
             }
             else if (_screen == "Dashboard")
             {
-                <label>Owner Serno (tesisat)<input type="number" @bind="_ownerSerno" /></label>
+                @if (_subs.Count > 0)
+                {
+                    <label>Tesisat
+                        <select @bind="_ownerSerno">
+                            <option value="0">— seçin —</option>
+                            @foreach (var s in _subs){ <option value="@s.Serno">@s.Label (#@s.Serno)</option> }
+                        </select>
+                    </label>
+                }
+                else
+                {
+                    <label>Owner Serno (tesisat)<input type="number" @bind="_ownerSerno" /></label>
+                }
                 <label>Başlangıç<input type="date" @bind="_start" /></label>
                 <label>Bitiş<input type="date" @bind="_end" /></label>
             }
@@ -70,8 +83,9 @@ else
             <div class="osos-tabs">
                 <button class="@Tab("table")" @onclick='() => _view = "table"'>Tablo</button>
                 <button class="@Tab("chart")" @onclick='() => _view = "chart"'>Grafik</button>
-                <span class="osos-muted" style="margin-left:auto;align-self:center">
-                    Kaydedildi (geçmiş #@_result.SearchHistoryId) — @_result.RowCount satır
+                <button class="osos-btn-sm" style="margin-left:auto" @onclick="() => Download(_result!.SearchHistoryId)">⬇ CSV indir</button>
+                <span class="osos-muted" style="align-self:center">
+                    #@_result.SearchHistoryId — @_result.RowCount satır
                 </span>
             </div>
             @if (_view == "table")
@@ -148,6 +162,13 @@ else
     }
 
     private long[] Selected() => _selected.Count == 0 ? Array.Empty<long>() : _selected.ToArray();
+
+    private async Task Download(long id)
+    {
+        var f = await Api.ExportCsvAsync(id);
+        if (f is null) { _msg = "CSV indirilemedi."; return; }
+        await JS.InvokeVoidAsync("ososDownload", f.Value.fileName, Convert.ToBase64String(f.Value.bytes), "text/csv");
+    }
 
     private async Task Run()
     {

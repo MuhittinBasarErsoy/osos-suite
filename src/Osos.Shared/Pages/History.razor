@@ -1,5 +1,6 @@
 @page "/history"
 @inject OsosApiClient Api
+@inject IJSRuntime JS
 
 <h2>Arama Geçmişi</h2>
 
@@ -39,6 +40,7 @@ else
                                 <td>@h.CreatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</td>
                                 <td class="osos-actions">
                                     <button class="osos-btn-sm" @onclick="() => View(h.Id)">Görüntüle</button>
+                                    <button class="osos-btn-sm" @onclick="() => Download(h.Id)">⬇ CSV</button>
                                     <button class="osos-btn-sm" @onclick="() => Rerun(h.Id)">Tekrar</button>
                                     <button class="osos-btn-sm osos-danger" @onclick="() => Delete(h.Id)">Sil</button>
                                 </td>
@@ -95,5 +97,12 @@ else
     private async Task Delete(long id)
     {
         if (await Api.DeleteAsync(id)) { if (_viewId == id) _snapshot = null; await Load(); }
+    }
+
+    private async Task Download(long id)
+    {
+        var f = await Api.ExportCsvAsync(id);
+        if (f is null) { _msg = "CSV indirilemedi."; return; }
+        await JS.InvokeVoidAsync("ososDownload", f.Value.fileName, Convert.ToBase64String(f.Value.bytes), "text/csv");
     }
 }
