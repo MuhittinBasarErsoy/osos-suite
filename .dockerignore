@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.gitignore
+**/*.user
+**/appsettings.*.local.json
+tests/
+src/Osos.Maui/
+**/Dockerfile
+docker-compose*.yml
+*.md

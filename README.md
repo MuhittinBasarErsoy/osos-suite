@@ -78,3 +78,30 @@ dotnet run --project src/Osos.Cli -- <OSOS_KullaniciAdi>
 ## Güvenlik notları
 - OSOS şifresi DB'de ASP.NET **DataProtection** ile şifreli saklanır.
 - Üretimde `appsettings.json`'daki `Jwt:Key` mutlaka değiştirilmeli.
+
+---
+
+## Docker ile çalıştırma (önerilen — LocalDB derdi yok)
+
+Gereksinim: Docker Desktop.
+
+```bash
+docker compose up -d --build
+```
+
+- `mssql` (SQL Server 2022 container) + `app` (Osos.Server, web'i de barındırır) ayağa kalkar.
+- İlk açılışta app, DB şemasını otomatik oluşturur (EF migrate).
+- Tarayıcı: **http://localhost:8080** → Kayıt/Giriş → OSOS hesabı bağla → Sorgu/Geçmiş.
+
+Yönetim:
+```bash
+docker compose logs -f app     # logları izle
+docker compose down            # durdur (DB verisi 'mssql-data' volume'unda kalır)
+docker compose down -v         # DB dahil her şeyi sil
+```
+
+Ayarlar (opsiyonel, `.env` veya ortam değişkeni):
+- `MSSQL_SA_PASSWORD` — SQL sa şifresi (varsayılan `Osos_Str0ng!Pass`; üretimde değiştirin)
+- `JWT_KEY` — JWT imza anahtarı (üretimde mutlaka değiştirin)
+
+Not: LocalDB'ye gerek kalmaz; veriler container volume'unda kalıcıdır. MAUI (mobil) ayrıdır; container'daki API'ye `http://<sunucu-ip>:8080` ile bağlanır.
