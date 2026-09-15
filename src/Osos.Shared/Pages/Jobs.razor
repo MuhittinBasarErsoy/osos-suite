@@ -1,0 +1,179 @@
+@page "/jobs"
+@inject OsosApiClient Api
+
+<h2>İşler (Zamanlanmış / Anlık)</h2>
+
+@if (!Api.IsAuthenticated)
+{
+    <p class="osos-error">Önce <a href="/account">giriş</a> yapın ve OSOS hesabınızı bağlayın.</p>
+}
+else
+{
+    <div class="osos-card">
+        <h3>Yeni iş</h3>
+        <div class="osos-form osos-form-grid">
+            <label>Sorgu
+                <select @bind="_screen">
+                    <option value="Consumption">Tüketim</option>
+                    <option value="Endex">Endeks</option>
+                    <option value="Profiles">Akım/Gerilim/Cosφ</option>
+                    <option value="Subscriptions">Aboneler</option>
+                    <option value="Dashboard">Dashboard (Owner tüketim)</option>
+                </select>
+            </label>
+            <label>Serno (boş = otomatik)
+                <input type="number" @bind="_serno" />
+            </label>
+            @if (_screen != "Subscriptions")
+            {
+                <label>Son kaç gün
+                    <input type="number" @bind="_daysBack" min="0" />
+                </label>
+            }
+            @if (_screen == "Consumption")
+            {
+                <label>Type<input type="number" @bind="_type" /></label>
+            }
+        </div>
+
+        <div class="osos-form osos-form-grid" style="margin-top:.5rem">
+            <label>Zamanlama (cron)
+                <select @bind="_cronPreset">
+                    <option value="">(anlık — zamanlama yok)</option>
+                    <option value="0 * * * *">Her saat başı</option>
+                    <option value="*/15 * * * *">Her 15 dakikada</option>
+                    <option value="0 8 * * *">Her gün 08:00</option>
+                    <option value="0 8 * * 1">Her Pazartesi 08:00</option>
+                    <option value="0 0 1 * *">Her ayın 1'i 00:00</option>
+                    <option value="custom">Özel cron…</option>
+                </select>
+            </label>
+            @if (_cronPreset == "custom")
+            {
+                <label>Özel cron<input @bind="_customCron" placeholder="dk sa gün ay hafta" /></label>
+            }
+            <label>İsim (opsiyonel)<input @bind="_name" placeholder="ör. gunluk-tuketim" /></label>
+        </div>
+
+        <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap">
+            <button class="osos-btn" disabled="@_busy" @onclick="RunNow">▶ Şimdi çalıştır</button>
+            <button class="osos-btn" disabled="@(_busy || EffectiveCron == "")" @onclick="Schedule">🕒 Zamanla</button>
+            <a class="osos-btn-sm" href="/hangfire" target="_blank" style="align-self:center">Hangfire paneli ↗</a>
+        </div>
+        @if (_msg is not null){ <p class="@(_ok ? "osos-ok" : "osos-error")">@_msg</p> }
+    </div>
+
+    <div class="osos-card">
+        <div style="display:flex; align-items:center; gap:1rem">
+            <h3 style="margin:0">Zamanlanmış işler</h3>
+            <button class="osos-btn-sm" @onclick="Load">Yenile</button>
+        </div>
+        @if (_jobs is null)
+        {
+            <p class="osos-muted">Yükleniyor...</p>
+        }
+        else if (_jobs.Count == 0)
+        {
+            <p class="osos-muted">Zamanlanmış iş yok.</p>
+        }
+        else
+        {
+            <div class="osos-table-wrap">
+                <table class="osos-table">
+                    <thead>
+                        <tr><th>İsim/ID</th><th>Sorgu</th><th>Serno</th><th>Gün</th><th>Cron</th><th>Sonraki</th><th>Son</th><th>Durum</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var j in _jobs)
+                        {
+                            <tr>
+                                <td title="@j.Id">@ShortId(j.Id)</td>
+                                <td>@j.Screen</td>
+                                <td>@(j.Serno == 0 ? "oto" : j.Serno.ToString())</td>
+                                <td>@j.DaysBack</td>
+                                <td><code>@j.Cron</code></td>
+                                <td>@j.NextRun</td>
+                                <td>@j.LastRun</td>
+                                <td>@j.LastState</td>
+                                <td class="osos-actions">
+                                    <button class="osos-btn-sm" @onclick="() => Trigger(j.Id)">Tetikle</button>
+                                    <button class="osos-btn-sm osos-danger" @onclick="() => Delete(j.Id)">Sil</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string _screen = "Consumption";
+    private long _serno;
+    private int _daysBack = 1;
+    private int _type = 2;
+    private string _cronPreset = "";
+    private string _customCron = "";
+    private string? _name;
+    private bool _busy;
+    private bool _ok;
+    private string? _msg;
+    private List<JobDto>? _jobs;
+
+    private string EffectiveCron => _cronPreset == "custom" ? _customCron.Trim() : _cronPreset;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Api.IsAuthenticated) await Load();
+    }
+
+    private async Task Load()
+    {
+        try { _jobs = await Api.GetJobsAsync() ?? new(); }
+        catch (Exception ex) { _msg = ex.Message; _ok = false; }
+    }
+
+    private async Task RunNow()
+    {
+        _busy = true; _msg = null;
+        try
+        {
+            _ok = await Api.RunNowAsync(new RunNowRequest(_screen, _serno, _daysBack, _type));
+            _msg = _ok ? "İş kuyruğa alındı — birkaç saniye içinde çalışır (Geçmiş'te görünür)." : "Başlatılamadı.";
+        }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Schedule()
+    {
+        _busy = true; _msg = null;
+        try
+        {
+            _ok = await Api.ScheduleJobAsync(new ScheduleJobRequest(_screen, _serno, _daysBack, _type, EffectiveCron, _name));
+            _msg = _ok ? "Zamanlanmış iş oluşturuldu." : "Oluşturulamadı (cron geçerli mi?).";
+            if (_ok) await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Trigger(string id)
+    {
+        _ok = await Api.TriggerJobAsync(id);
+        _msg = _ok ? "Tetiklendi." : "Tetiklenemedi.";
+        await Load();
+    }
+
+    private async Task Delete(string id)
+    {
+        if (await Api.DeleteJobAsync(id)) await Load();
+    }
+
+    private static string ShortId(string id)
+    {
+        var parts = id.Split(':');
+        return parts.Length > 0 ? parts[^1] : id;
+    }
+}

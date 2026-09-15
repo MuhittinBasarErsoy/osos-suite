@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Osos.Contracts;
+using Osos.Core.Osos;
 using Osos.Server.Data;
 
 namespace Osos.Server.Services;
@@ -24,6 +25,41 @@ public sealed class SearchService
 
     /// <summary>OSOS tarih formatı: yyyyMMddHHmmss (long).</summary>
     public static long ToOsosDate(DateTime dt) => long.Parse(dt.ToString("yyyyMMddHHmmss"));
+
+    /// <summary>Ekran tipine göre OSOS parametrelerini kurar ve çalıştırıp kaydeder (controller + job ortak).</summary>
+    public Task<OsosResult> RunScreenAsync(string appUserId, string screen, long serno,
+        DateTime start, DateTime end, int type, long[]? selected, CancellationToken ct)
+    {
+        long D(DateTime dt) => ToOsosDate(dt);
+        var sel = selected ?? Array.Empty<long>();
+        object p;
+        string method;
+        switch (screen)
+        {
+            case "Endex":
+                method = OsosMethods.GetCustomerSelectedCurrentEndexes;
+                p = new { Serno = serno, StartDate = D(start), EndDate = D(end), Selected = sel, MarkFilterString = (string?)null, TitleFilterString = (string?)null, TotalItemCount = 0 };
+                break;
+            case "Profiles":
+                method = OsosMethods.GetCustomerSelectedProfiles;
+                p = new { Serno = serno, StartDate = D(start), EndDate = D(end), Selected = sel, MarkFilterString = (string?)null, TitleFilterString = (string?)null, TotalItemCount = 0, WithourMultiplier = true };
+                break;
+            case "Subscriptions":
+                method = OsosMethods.GetCustomerPortalSubscriptions;
+                p = new { Serno = serno, PageSize = 1000, PageNumber = 1 };
+                return RunAndSaveAsync(appUserId, screen, method, p, serno, null, null, ct);
+            case "Dashboard":
+                method = OsosMethods.GetOwnerConsumptions;
+                p = new { OwnerSerno = serno, OwnerType = 15, StartDate = D(start), EndDate = D(end), IsOnlySuccess = true, IncludeLoadProfiles = false, IncludeVersions = false, WithoutMultiplier = false, MergeResult = true };
+                break;
+            default: // Consumption
+                screen = "Consumption";
+                method = OsosMethods.GetCustomerSelectedConsumptions;
+                p = new { Serno = serno, StartDate = D(start), EndDate = D(end), Selected = sel, Type = type, Period = 0, MarkFilterString = (string?)null, TitleFilterString = (string?)null, TotalItemCount = 0 };
+                break;
+        }
+        return RunAndSaveAsync(appUserId, screen, method, p, serno, start, end, ct);
+    }
 
     /// <summary>Çağrıyı yapar, geçmiş + snapshot kaydeder, ham sonucu döner.</summary>
     public async Task<OsosResult> RunAndSaveAsync(

@@ -121,6 +121,18 @@ public sealed class OsosApiClient
         return (bytes, name);
     }
 
+    // ---- İşler (Hangfire) ----
+    public async Task<bool> RunNowAsync(RunNowRequest req)
+        => (await _http.PostAsJsonAsync("api/jobs/run-now", req)).IsSuccessStatusCode;
+    public async Task<bool> ScheduleJobAsync(ScheduleJobRequest req)
+        => (await _http.PostAsJsonAsync("api/jobs/schedule", req)).IsSuccessStatusCode;
+    public async Task<List<JobDto>?> GetJobsAsync()
+        => await _http.GetFromJsonAsync<List<JobDto>>("api/jobs");
+    public async Task<bool> TriggerJobAsync(string id)
+        => (await _http.PostAsync($"api/jobs/{Uri.EscapeDataString(id)}/trigger", null)).IsSuccessStatusCode;
+    public async Task<bool> DeleteJobAsync(string id)
+        => (await _http.DeleteAsync($"api/jobs/{Uri.EscapeDataString(id)}")).IsSuccessStatusCode;
+
     private async Task<TOut?> Post<TIn, TOut>(string path, TIn body)
     {
         var resp = await _http.PostAsJsonAsync(path, body);

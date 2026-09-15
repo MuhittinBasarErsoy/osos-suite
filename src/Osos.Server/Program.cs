@@ -1,4 +1,6 @@
 using System.Text;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +55,19 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<ResultMaterializer>();
 builder.Services.AddScoped<SearchService>();
 
+// ---- Hangfire (zamanlanmış/anlık işler) ----
+builder.Services.AddHangfire(cfg => cfg
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(connStr, new SqlServerStorageOptions
+    {
+        PrepareSchemaIfNecessary = true,
+        QueuePollInterval = TimeSpan.FromSeconds(15)
+    }));
+builder.Services.AddHangfireServer();
+builder.Services.AddScoped<JobRunner>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -91,6 +106,13 @@ app.UseHttpsRedirection();
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Hangfire dashboard (dev: herkese açık — üretimde kısıtlayın)
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new AllowAllDashboardAuth() }
+});
+
 app.MapControllers();
 
 // API dışındaki tüm yollar Blazor index.html'e düşer (SPA yönlendirmesi).
