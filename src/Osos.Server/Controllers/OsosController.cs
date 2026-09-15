@@ -36,6 +36,11 @@ public sealed class OsosController : ControllerBase
     {
         try
         {
+            // Eski/başka DB'den kalan token: kullanıcı bu veritabanında yoksa FK hatası yerine net mesaj.
+            if (!await _db.Users.AnyAsync(u => u.Id == Uid, ct))
+                return Unauthorized(new OsosLinkResponse(false,
+                    "Oturumunuz geçersiz (eski hesap farklı veritabanından). Lütfen Çıkış yapıp yeniden Kayıt/Giriş olun."));
+
             var (ok, msg, serno) = await _osos.TryLoginAsync(req.OsosUserCode, req.OsosPassword, req.RememberMe, ct);
             if (!ok) return BadRequest(new OsosLinkResponse(false, msg));
 
