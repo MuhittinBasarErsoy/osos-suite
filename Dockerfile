@@ -2,8 +2,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Blazor WASM publish için gerekli araçlar
-RUN dotnet workload install wasm-tools
+# Not: wasm-tools KURULMUYOR. Kurulursa publish native relink (emscripten/python) dener
+# ve SDK imajında python olmadığından hata verir. Varsayılan WASM publish (IL) yeterli.
 
 # Yalnızca sunucunun ihtiyaç duyduğu projeler (MAUI hariç)
 COPY src/Osos.Core/ ./src/Osos.Core/
