@@ -5,7 +5,9 @@ services:
   mssql:
     restart: always
     ports: !override
-      - "127.0.0.1:1433:1433"
+      # DB_BIND=<tailscale-ip> verilirse DB o IP'de (sadece tailnet) dinler → SSMS ile uzaktan erişim.
+      # Verilmezse yalnızca localhost (güvenli varsayılan).
+      - "${DB_BIND:-127.0.0.1}:1433:1433"
 
   app:
     restart: always
