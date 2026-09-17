@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <!-- Hosted publish + UseStaticFiles ile fingerprint'li friendly adlar 404/500 veriyor.
+         Fingerprint'i kapatınca fiziksel adlar = düz adlar → klasik statik serve çalışır. -->
+    <WasmFingerprintAssets>false</WasmFingerprintAssets>
   </PropertyGroup>
 
   <ItemGroup>
