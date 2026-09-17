@@ -1,0 +1,13 @@
+# Üretim override: portları yalnızca localhost'a bağla (public'e açma).
+# Erişim Tailscale üzerinden sağlanır (tailscale serve). Kullanım:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  mssql:
+    restart: always
+    ports: !override
+      - "127.0.0.1:1433:1433"
+
+  app:
+    restart: always
+    ports: !override
+      - "127.0.0.1:8080:8080"
