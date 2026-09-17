@@ -15,6 +15,13 @@ COPY src/Osos.Server/ ./src/Osos.Server/
 RUN dotnet restore src/Osos.Server/Osos.Server.csproj
 RUN dotnet publish src/Osos.Server/Osos.Server.csproj -c Release -o /app/publish --no-restore
 
+# Hosted publish'te index.html'deki fingerprint yer tutucusu (#[.{fingerprint}]) çözülmüyor →
+# WASM bootstrap 404 → sayfa "Loading"da kalır. Gerçek dosya adıyla değiştir.
+RUN cd /app/publish/wwwroot && \
+    BOOT=$(basename $(ls _framework/blazor.webassembly.*.js | grep -vE '\.(br|gz)$' | head -1)) && \
+    sed -i "s/blazor\.webassembly#\[\.{fingerprint}\]\.js/$BOOT/g" index.html && \
+    echo "index.html bootstrap -> $BOOT"
+
 # ---- Runtime aşaması ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
