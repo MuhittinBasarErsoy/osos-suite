@@ -10,4 +10,4 @@ services:
   app:
     restart: always
     ports: !override
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8090:8080"   # host 8090 (8080 sunucuda başka container tarafından kullanılıyor)
