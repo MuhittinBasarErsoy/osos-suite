@@ -1,0 +1,78 @@
+@page "/weather"
+@inject OsosApiClient Api
+@inject IJSRuntime JS
+
+<h2>Hava Durumu (Open-Meteo)</h2>
+
+@if (!Api.IsAuthenticated)
+{
+    <p class="osos-error">Önce <a href="/account">giriş</a> yapın.</p>
+}
+else
+{
+    <div class="osos-card">
+        <div class="osos-form osos-form-grid">
+            <label>Enlem<input type="number" step="any" @bind="_lat" /></label>
+            <label>Boylam<input type="number" step="any" @bind="_lon" /></label>
+            <label>Başlangıç<input type="date" @bind="_start" /></label>
+            <label>Bitiş<input type="date" @bind="_end" /></label>
+            <label>Timezone<input @bind="_tz" /></label>
+            <label>Panel tilt (ops.)<input type="number" step="any" @bind="_tilt" placeholder="0–90°" /></label>
+            <label>Azimuth (ops.)<input type="number" step="any" @bind="_azimuth" placeholder="-180–180°" /></label>
+            <button class="osos-btn" disabled="@_busy" @onclick="Run">@(_busy ? "İndiriliyor..." : "Verileri Getir")</button>
+        </div>
+        <p class="osos-muted">Open-Meteo saatlik ~35 değişken. Kaynak (Archive/Historical/Forecast) tarihe göre otomatik seçilir; sonuç DB'ye kaydedilir (Geçmiş + Rows_Weather).</p>
+        @if (_msg is not null){ <p class="osos-error">@_msg</p> }
+    </div>
+
+    @if (_result is not null)
+    {
+        <div class="osos-card">
+            <div class="osos-tabs">
+                <button class="@Tab("table")" @onclick='() => _view = "table"'>Tablo</button>
+                <button class="@Tab("chart")" @onclick='() => _view = "chart"'>Grafik</button>
+                <button class="osos-btn-sm" style="margin-left:auto" @onclick="() => Download(_result!.SearchHistoryId)">⬇ CSV indir</button>
+                <span class="osos-muted" style="align-self:center">#@_result.SearchHistoryId — @_result.RowCount saat</span>
+            </div>
+            @if (_view == "table"){ <ResultTable Json="@_result.RawJson" /> }
+            else { <ResultChart Json="@_result.RawJson" /> }
+        </div>
+    }
+}
+
+@code {
+    private double _lat = 40.195, _lon = 29.060;
+    private DateTime _start = DateTime.Today.AddDays(-7);
+    private DateTime _end = DateTime.Today;
+    private string _tz = "Europe/Istanbul";
+    private double? _tilt, _azimuth;
+    private bool _busy;
+    private string? _msg;
+    private OsosResult? _result;
+    private string _view = "table";
+
+    private string Tab(string v) => v == _view ? "osos-tab osos-tab-active" : "osos-tab";
+
+    private async Task Run()
+    {
+        _busy = true; _msg = null; _result = null; _view = "table";
+        try
+        {
+            _result = await Api.WeatherAsync(new WeatherQuery
+            {
+                Latitude = _lat, Longitude = _lon, StartDate = _start, EndDate = _end,
+                Timezone = _tz, Tilt = _tilt, Azimuth = _azimuth
+            });
+            if (_result is null) _msg = "Veri alınamadı. Koordinat/tarih/timezone'u kontrol edin.";
+        }
+        catch (Exception ex) { _msg = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Download(long id)
+    {
+        var f = await Api.ExportCsvAsync(id);
+        if (f is null) { _msg = "CSV indirilemedi."; return; }
+        await JS.InvokeVoidAsync("ososDownload", f.Value.fileName, Convert.ToBase64String(f.Value.bytes), "text/csv");
+    }
+}

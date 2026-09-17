@@ -91,6 +91,32 @@ public sealed class SearchService
         return new OsosResult(rawJson, rowCount, history.Id);
     }
 
+    /// <summary>OSOS dışı (ör. hava durumu) hazır JSON sonucu geçmiş + snapshot + Rows_ tablosuna kaydeder.</summary>
+    public async Task<OsosResult> SaveExternalResultAsync(string appUserId, string screen, string methodName,
+        object parameters, string rawJson, long? serno, DateTime? start, DateTime? end, CancellationToken ct)
+    {
+        int rowCount = CountRows(rawJson);
+        var history = new SearchHistory
+        {
+            AppUserId = appUserId,
+            Screen = screen,
+            MethodName = methodName,
+            ParametersJson = JsonSerializer.Serialize(parameters),
+            Serno = serno,
+            StartDate = start,
+            EndDate = end,
+            RowCount = rowCount,
+            Snapshot = new SearchResultSnapshot { ResultJson = rawJson, RowCount = rowCount }
+        };
+        _db.SearchHistories.Add(history);
+        await _db.SaveChangesAsync(ct);
+
+        try { await _materializer.MaterializeAsync(screen, history.Id, appUserId, serno, rawJson, ct); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Sonuç tabloya yazılamadı ({Screen})", screen); }
+
+        return new OsosResult(rawJson, rowCount, history.Id);
+    }
+
     public async Task<PagedResult<SearchHistoryDto>> GetHistoryAsync(string appUserId, int page, int pageSize, CancellationToken ct)
     {
         var q = _db.SearchHistories.AsNoTracking().Where(h => h.AppUserId == appUserId).OrderByDescending(h => h.CreatedAt);

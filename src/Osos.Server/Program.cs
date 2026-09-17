@@ -51,6 +51,7 @@ builder.Services.AddAuthorization();
 // ---- Uygulama servisleri ----
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<OsosSessionService>();
+builder.Services.AddHttpClient<Osos.Core.Weather.OpenMeteoClient>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<ResultMaterializer>();
 builder.Services.AddScoped<SearchService>();

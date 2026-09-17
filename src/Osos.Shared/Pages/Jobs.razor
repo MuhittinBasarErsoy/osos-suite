@@ -19,23 +19,34 @@ else
                     <option value="Profiles">Akım/Gerilim/Cosφ</option>
                     <option value="Subscriptions">Aboneler</option>
                     <option value="Dashboard">Dashboard (Owner tüketim)</option>
+                    <option value="Weather">Hava Durumu (Open-Meteo)</option>
                 </select>
             </label>
-            <label>Tesisat (Serno)
-                <select @bind="_serno">
-                    <option value="0">Otomatik (müşteri)</option>
-                    @foreach (var s in _subs){ <option value="@s.Serno">@s.Label @(s.Serno > 0 ? $"(#{s.Serno})" : "")</option> }
-                </select>
-            </label>
-            @if (_screen != "Subscriptions")
+            @if (_screen == "Weather")
             {
-                <label>Son kaç gün
-                    <input type="number" @bind="_daysBack" min="0" />
-                </label>
+                <label>Enlem<input type="number" step="any" @bind="_lat" /></label>
+                <label>Boylam<input type="number" step="any" @bind="_lon" /></label>
+                <label>Timezone<input @bind="_tz" /></label>
+                <label>Son kaç gün<input type="number" @bind="_daysBack" min="0" /></label>
+                <label>Tilt (ops.)<input type="number" step="any" @bind="_tilt" /></label>
+                <label>Azimuth (ops.)<input type="number" step="any" @bind="_azimuth" /></label>
             }
-            @if (_screen == "Consumption")
+            else
             {
-                <label>Type<input type="number" @bind="_type" /></label>
+                <label>Tesisat (Serno)
+                    <select @bind="_serno">
+                        <option value="0">Otomatik (müşteri)</option>
+                        @foreach (var s in _subs){ <option value="@s.Serno">@s.Label @(s.Serno > 0 ? $"(#{s.Serno})" : "")</option> }
+                    </select>
+                </label>
+                @if (_screen != "Subscriptions")
+                {
+                    <label>Son kaç gün<input type="number" @bind="_daysBack" min="0" /></label>
+                }
+                @if (_screen == "Consumption")
+                {
+                    <label>Type<input type="number" @bind="_type" /></label>
+                }
             }
         </div>
 
@@ -119,6 +130,9 @@ else
     private string _cronPreset = "";
     private string _customCron = "";
     private string? _name;
+    private double _lat = 40.195, _lon = 29.060;
+    private string _tz = "Europe/Istanbul";
+    private double? _tilt, _azimuth;
     private bool _busy;
     private bool _ok;
     private string? _msg;
@@ -152,12 +166,17 @@ else
         catch (Exception ex) { _msg = ex.Message; _ok = false; }
     }
 
+    private WeatherJobRequest WeatherReq(string? cron)
+        => new(_lat, _lon, _daysBack, _tz, _tilt, _azimuth, cron, _name);
+
     private async Task RunNow()
     {
         _busy = true; _msg = null;
         try
         {
-            _ok = await Api.RunNowAsync(new RunNowRequest(_screen, _serno, _daysBack, _type));
+            _ok = _screen == "Weather"
+                ? await Api.WeatherRunNowAsync(WeatherReq(null))
+                : await Api.RunNowAsync(new RunNowRequest(_screen, _serno, _daysBack, _type));
             _msg = _ok ? "İş kuyruğa alındı — birkaç saniye içinde çalışır (Geçmiş'te görünür)." : "Başlatılamadı.";
         }
         catch (Exception ex) { _ok = false; _msg = ex.Message; }
@@ -169,7 +188,9 @@ else
         _busy = true; _msg = null;
         try
         {
-            _ok = await Api.ScheduleJobAsync(new ScheduleJobRequest(_screen, _serno, _daysBack, _type, EffectiveCron, _name));
+            _ok = _screen == "Weather"
+                ? await Api.WeatherScheduleAsync(WeatherReq(EffectiveCron))
+                : await Api.ScheduleJobAsync(new ScheduleJobRequest(_screen, _serno, _daysBack, _type, EffectiveCron, _name));
             _msg = _ok ? "Zamanlanmış iş oluşturuldu." : "Oluşturulamadı (cron geçerli mi?).";
             if (_ok) await Load();
         }

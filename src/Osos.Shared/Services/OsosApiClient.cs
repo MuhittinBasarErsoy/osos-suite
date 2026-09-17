@@ -96,6 +96,13 @@ public sealed class OsosApiClient
     public Task<OsosResult?> SubscriptionsAsync(SubscriptionsQuery q) => Post<SubscriptionsQuery, OsosResult>("api/osos/subscriptions", q);
     public Task<OsosResult?> OwnerConsumptionsAsync(OwnerConsumptionsQuery q) => Post<OwnerConsumptionsQuery, OsosResult>("api/osos/dashboard/owner-consumptions", q);
 
+    // ---- Hava durumu (Open-Meteo) ----
+    public Task<OsosResult?> WeatherAsync(WeatherQuery q) => Post<WeatherQuery, OsosResult>("api/weather", q);
+    public async Task<bool> WeatherRunNowAsync(WeatherJobRequest req)
+        => (await _http.PostAsJsonAsync("api/jobs/weather/run-now", req)).IsSuccessStatusCode;
+    public async Task<bool> WeatherScheduleAsync(WeatherJobRequest req)
+        => (await _http.PostAsJsonAsync("api/jobs/weather/schedule", req)).IsSuccessStatusCode;
+
     // ---- Arama geçmişi ----
     public async Task<PagedResult<SearchHistoryDto>?> GetHistoryAsync(int page = 1, int pageSize = 25)
         => await _http.GetFromJsonAsync<PagedResult<SearchHistoryDto>>($"api/searches?page={page}&pageSize={pageSize}");
