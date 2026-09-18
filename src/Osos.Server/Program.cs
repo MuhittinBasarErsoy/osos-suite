@@ -108,10 +108,13 @@ app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Hangfire dashboard (dev: herkese açık — üretimde kısıtlayın)
+// Hangfire dashboard — Basic auth (public'e karşı korumalı).
+// Kullanıcı/şifre: Hangfire:User / Hangfire:Password (ör. HANGFIRE_PASSWORD ortam değişkeni).
+var hfUser = builder.Configuration["Hangfire:User"] ?? "admin";
+var hfPass = builder.Configuration["Hangfire:Password"] ?? "";
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = new[] { new AllowAllDashboardAuth() }
+    Authorization = new[] { new BasicAuthDashboardFilter(hfUser, hfPass) }
 });
 
 app.MapControllers();
