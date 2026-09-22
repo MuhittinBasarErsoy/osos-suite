@@ -11,7 +11,7 @@ public sealed class JwtOptions
     public string Key { get; set; } = "";
     public string Issuer { get; set; } = "OsosSuite";
     public string Audience { get; set; } = "OsosSuite";
-    public int ExpiryMinutes { get; set; } = 720;
+    public int ExpiryMinutes { get; set; } = 43200; // 30 gün (günlük yeniden giriş gerektirmesin)
 }
 
 public sealed class TokenService

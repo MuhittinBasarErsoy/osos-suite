@@ -20,17 +20,40 @@ public sealed class OsosApiClient
         _tokens = tokens;
     }
 
-    /// <summary>Uygulama açılışında saklı token'ı yükler.</summary>
+    /// <summary>Uygulama açılışında saklı token'ı yükler. Süresi dolmuşsa temizler (login formu görünsün).</summary>
     public async Task InitializeAsync()
     {
         var token = await _tokens.GetAsync();
-        if (!string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token)) return;
+
+        if (IsExpired(token))
         {
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            IsAuthenticated = true;
-            Username = TryReadUsername(token);
+            await _tokens.ClearAsync();          // eski/süresi dolmuş token → çıkış durumu
             AuthChanged?.Invoke();
+            return;
         }
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        IsAuthenticated = true;
+        Username = TryReadUsername(token);
+        AuthChanged?.Invoke();
+    }
+
+    /// <summary>JWT 'exp' claim'ine göre token süresi dolmuş mu (60 sn pay).</summary>
+    private static bool IsExpired(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return true;
+            string p = parts[1].Replace('-', '+').Replace('_', '/');
+            p = p.PadRight(p.Length + (4 - p.Length % 4) % 4, '=');
+            using var doc = System.Text.Json.JsonDocument.Parse(Convert.FromBase64String(p));
+            if (doc.RootElement.TryGetProperty("exp", out var expEl) && expEl.TryGetInt64(out var exp))
+                return DateTimeOffset.FromUnixTimeSeconds(exp) <= DateTimeOffset.UtcNow.AddSeconds(60);
+            return false;
+        }
+        catch { return true; }
     }
 
     /// <summary>JWT payload'ından kullanıcı adını okur (yalnızca gösterim; doğrulama sunucuda).</summary>
