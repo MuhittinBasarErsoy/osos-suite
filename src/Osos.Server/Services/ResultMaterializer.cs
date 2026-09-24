@@ -137,13 +137,50 @@ CREATE TABLE [dbo].[{table}] (
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
                 var d = new Dictionary<string, string>();
+                JsonProperty? explode = null;
                 foreach (var p in item.EnumerateObject())
-                    d[p.Name] = Cell(p.Value);
-                result.Add(d);
+                    d[p.Name] = Cell(p.Value);   // JSON sütunu ham haliyle kalır
+                foreach (var p in item.EnumerateObject())
+                {
+                    if (p.Value.ValueKind == JsonValueKind.Object)
+                        AddChildren(d, p.Name, p.Value);
+                    else if (explode is null && IsObjectArray(p.Value))
+                        explode = p;
+                }
+
+                if (explode is null) { result.Add(d); continue; }
+
+                // İç içe obje dizisi: her eleman ayrı satır; JSON sütununda o elemanın JSON'u,
+                // alanları da kendi sütunlarında.
+                foreach (var child in explode.Value.Value.EnumerateArray())
+                {
+                    if (child.ValueKind != JsonValueKind.Object) continue;
+                    var row = new Dictionary<string, string>(d) { [explode.Value.Name] = child.GetRawText() };
+                    AddChildren(row, explode.Value.Name, child);
+                    result.Add(row);
+                }
             }
         }
         catch { /* düzleştirilemiyorsa boş geç */ }
         return result;
+    }
+
+    /// <summary>İç içe objenin skaler alanlarını kendi sütunlarına ekler; ad çakışırsa "üst_alt" kullanılır.</summary>
+    private static void AddChildren(Dictionary<string, string> d, string parent, JsonElement obj)
+    {
+        foreach (var c in obj.EnumerateObject())
+        {
+            if (c.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array) continue;
+            var name = d.ContainsKey(c.Name) ? parent + "_" + c.Name : c.Name;
+            d[name] = Cell(c.Value);
+        }
+    }
+
+    private static bool IsObjectArray(JsonElement v)
+    {
+        if (v.ValueKind != JsonValueKind.Array) return false;
+        foreach (var i in v.EnumerateArray()) if (i.ValueKind == JsonValueKind.Object) return true;
+        return false;
     }
 
     private static string Cell(JsonElement v) => v.ValueKind switch
